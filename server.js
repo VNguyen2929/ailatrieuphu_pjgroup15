@@ -2,18 +2,22 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors'); 
 const app = express();
-const PORT = 3000;
+
+// SỬA DÒNG NÀY: Để Render tự cấp cổng phù hợp
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors()); 
 app.use(express.json());
 
-// THIẾT LẬP KẾT NỐI DATABASE (XAMPP)
+// SỬA ĐOẠN NÀY: Kết nối thẳng tới Clever Cloud thay vì localhost
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'quiz_game_db' 
+    host: 'b4dj0ftgiazi4ilxgnv8-mysql.services.clever-cloud.com',
+    user: 'u9u9boxplpfnvcrj',
+    password: '5NqvnDsAXFgxzQEI1PoU',
+    database: 'b4dj0ftgiazi4ilxgnv8',
+    port: 3306,
+    ssl: { rejectUnauthorized: false } // Thêm dòng này để kết nối online ổn định hơn
 });
 
 db.connect(err => {
@@ -21,10 +25,10 @@ db.connect(err => {
         console.error('❌ LỖI KẾT NỐI DATABASE:', err.stack);
         return;
     }
-    console.log('✅ DATABASE LOCAL ĐÃ SẴN SÀNG');
+    console.log('✅ DATABASE CLOUD ĐÃ SẴN SÀNG');
 });
 
-// --- CÁC API CŨ GIỮ NGUYÊN ---
+// --- TẤT CẢ API GIỮ NGUYÊN NHƯ CŨ ---
 app.get('/api/topics', (req, res) => {
     const sql = 'SELECT id, name FROM Topics ORDER BY id';
     db.query(sql, (err, results) => {
@@ -176,7 +180,6 @@ app.delete('/api/topics/:id', (req, res) => {
     });
 });
 
-// Lấy danh sách TẤT CẢ lớp học (Cho học sinh chọn ở chế độ Ở nhà - Kèm tên GV để khỏi nhầm)
 app.get('/api/classes', (req, res) => {
     const sql = `
         SELECT c.*, t.full_name as teacher_name 
@@ -189,7 +192,6 @@ app.get('/api/classes', (req, res) => {
     });
 });
 
-// Lấy danh sách Lớp CỦA RIÊNG 1 GIÁO VIÊN (Cho trang Quản trị của GV đó)
 app.get('/api/classes/teacher/:teacherId', (req, res) => {
     const sql = 'SELECT * FROM Classes WHERE teacher_id = ? ORDER BY class_name';
     db.query(sql, [req.params.teacherId], (err, results) => {
@@ -198,7 +200,6 @@ app.get('/api/classes/teacher/:teacherId', (req, res) => {
     });
 });
 
-// Thêm Lớp học mới (Lưu kèm ID của giáo viên tạo lớp)
 app.post('/api/classes', (req, res) => {
     const { class_name, teacher_id } = req.body;
     db.query('INSERT INTO Classes (class_name, teacher_id) VALUES (?, ?)', [class_name, teacher_id], (err, result) => {
@@ -262,7 +263,6 @@ app.post('/api/students/login', (req, res) => {
     });
 });
 
-// --- API HỌC SINH TỰ ĐỔI MẬT KHẨU CHUẨN ---
 app.put('/api/student-change-password', (req, res) => {
     const { student_id, old_password, new_password } = req.body;
     const checkSql = 'SELECT * FROM Students WHERE id = ? AND password = ?';
@@ -319,9 +319,6 @@ app.delete('/api/results/clear', (req, res) => {
     });
 });
 
-// ==========================================
-// API ĐĂNG NHẬP GIÁO VIÊN
-// ==========================================
 app.post('/api/teachers/login', (req, res) => {
     const { username, password } = req.body;
     const sql = 'SELECT id, username, full_name FROM Teachers WHERE username = ? AND password = ?';
@@ -335,17 +332,13 @@ app.post('/api/teachers/login', (req, res) => {
     });
 });
 
-// Thêm tài khoản Giáo viên mới (Chỉ Admin)
 app.post('/api/teachers', (req, res) => {
     const { username, password, full_name } = req.body;
-    
-    // Kiểm tra xem username đã có người dùng chưa
     const checkSql = 'SELECT * FROM Teachers WHERE username = ?';
     db.query(checkSql, [username], (err, results) => {
         if (err) return res.status(500).json({ message: 'Lỗi Database.' });
         if (results.length > 0) return res.status(400).json({ message: 'Tên đăng nhập này đã tồn tại, vui lòng chọn tên khác!' });
 
-        // Nếu chưa tồn tại thì thêm mới
         const sql = 'INSERT INTO Teachers (username, password, full_name) VALUES (?, ?, ?)';
         db.query(sql, [username, password, full_name], (err, result) => {
             if (err) return res.status(500).json({ message: 'Lỗi khi tạo tài khoản.' });
@@ -355,5 +348,5 @@ app.post('/api/teachers', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
+    console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
 });
