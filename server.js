@@ -30,7 +30,7 @@ db.connect(err => {
 
 // --- TẤT CẢ API GIỮ NGUYÊN NHƯ CŨ ---
 app.get('/api/topics', (req, res) => {
-    const sql = 'SELECT id, name FROM Topics ORDER BY id';
+    const sql = 'SELECT id, name FROM topics ORDER BY id';
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ message: 'Lỗi lấy Chủ đề.' });
         res.json(results);
