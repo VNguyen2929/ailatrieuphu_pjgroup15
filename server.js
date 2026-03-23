@@ -3,23 +3,28 @@ const mysql = require('mysql2');
 const cors = require('cors'); 
 const app = express();
 
-// Render sẽ tự động cấp cổng thông qua process.env.PORT
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors()); 
 app.use(express.json());
 
 // THIẾT LẬP KẾT NỐI DATABASE (CLEVER CLOUD)
-const db = mysql.createConnection({
-    host: 'b4dj0ftgiazi4ilxgnv8-mysql.services.clever-cloud.com',
-    user: 'u9u9boxplpfnvcrj',
-    password: '5NqvnDsAXFgxzQEI1PoU',
-    database: 'b4dj0ftgiazi4ilxgnv8',
-    port: 3306,
-    ssl: { rejectUnauthorized: false }
-});
 
+const db = mysql.createConnection({
+
+    host: 'b4dj0ftgiazi4ilxgnv8-mysql.services.clever-cloud.com',
+
+    user: 'u9u9boxplpfnvcrj',
+
+    password: '5NqvnDsAXFgxzQEI1PoU',
+
+    database: 'b4dj0ftgiazi4ilxgnv8',
+
+    port: 3306,
+
+    ssl: { rejectUnauthorized: false }
+
+});
 db.connect(err => {
     if (err) {
         console.error('❌ LỖI KẾT NỐI DATABASE:', err.stack);
@@ -28,7 +33,6 @@ db.connect(err => {
     console.log('✅ DATABASE CLOUD ĐÃ SẴN SÀNG');
 });
 
-// --- API CHỦ ĐỀ (topics) ---
 app.get('/api/topics', (req, res) => {
     const sql = 'SELECT id, name FROM topics ORDER BY id';
     db.query(sql, (err, results) => {
@@ -37,7 +41,6 @@ app.get('/api/topics', (req, res) => {
     });
 });
 
-// --- API BÀI HỌC (lessons) ---
 app.get('/api/lessons/:topicId', (req, res) => {
     const topicId = req.params.topicId;
     const sql = 'SELECT id, name, is_summary FROM lessons WHERE topic_id = ? ORDER BY is_summary, id';
@@ -47,7 +50,6 @@ app.get('/api/lessons/:topicId', (req, res) => {
     });
 });
 
-// --- API CÂU HỎI (questions) ---
 app.get('/api/questions/:lessonId', (req, res) => {
     const lessonId = req.params.lessonId;
     const sql = 'SELECT * FROM questions WHERE lesson_id = ? ORDER BY id DESC';
@@ -181,7 +183,6 @@ app.delete('/api/topics/:id', (req, res) => {
     });
 });
 
-// --- LỚP HỌC (classes) ---
 app.get('/api/classes', (req, res) => {
     const sql = `
         SELECT c.*, t.full_name as teacher_name 
@@ -209,8 +210,25 @@ app.post('/api/classes', (req, res) => {
         res.json({ message: 'Thêm lớp thành công!', id: result.insertId });
     });
 });
+// ĐỔI TÊN LỚP
+app.put('/api/classes/:id', (req, res) => {
+    const { class_name } = req.body;
+    const sql = 'UPDATE classes SET class_name = ? WHERE id = ?';
+    db.query(sql, [class_name, req.params.id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi khi đổi tên lớp.' });
+        res.json({ message: 'Đổi tên Lớp thành công!' });
+    });
+});
 
-// --- HỌC SINH (students) ---
+// XÓA LỚP
+app.delete('/api/classes/:id', (req, res) => {
+    const sql = 'DELETE FROM classes WHERE id = ?';
+    db.query(sql, [req.params.id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Không thể xóa! Vui lòng xóa hết học sinh trong Lớp này trước.' });
+        res.json({ message: 'Xóa Lớp thành công!' });
+    });
+});
+
 app.get('/api/students/:classId', (req, res) => {
     const sql = 'SELECT * FROM students WHERE class_id = ? ORDER BY student_number';
     db.query(sql, [req.params.classId], (err, results) => {
@@ -281,7 +299,6 @@ app.put('/api/student-change-password', (req, res) => {
     });
 });
 
-// --- KẾT QUẢ (gameresults) ---
 app.post('/api/results', (req, res) => {
     const { student_id, lesson_id, play_mode, correct_answers, score } = req.body;
     const sql = 'INSERT INTO gameresults (student_id, lesson_id, play_mode, correct_answers, score) VALUES (?, ?, ?, ?, ?)';
@@ -323,7 +340,7 @@ app.delete('/api/results/clear', (req, res) => {
     });
 });
 
-// --- GIÁO VIÊN (teachers) ---
+
 app.post('/api/teachers/login', (req, res) => {
     const { username, password } = req.body;
     const sql = 'SELECT id, username, full_name FROM teachers WHERE username = ? AND password = ?';
@@ -349,6 +366,108 @@ app.post('/api/teachers', (req, res) => {
     });
 });
 
+app.get('/api/teachers', (req, res) => {
+    const sql = 'SELECT id, username, full_name FROM teachers ORDER BY id DESC';
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json({ message: 'Lỗi lấy danh sách Giáo viên.' });
+        res.json(results);
+    });
+});
+
+app.delete('/api/teachers/:id', (req, res) => {
+    const sql = 'DELETE FROM teachers WHERE id = ?';
+    db.query(sql, [req.params.id], (err, result) => {
+        if (err) return res.status(500).json({ message: 'Lỗi khi xóa tài khoản giáo viên.' });
+        res.json({ message: 'Xóa tài khoản giáo viên thành công!' });
+    });
+});
+
+app.put('/api/teachers/admin-edit/:id', (req, res) => {
+    const { username, full_name, password } = req.body;
+    if (password && password.trim() !== '') {
+        const sql = 'UPDATE teachers SET username = ?, full_name = ?, password = ? WHERE id = ?';
+        db.query(sql, [username, full_name, password, req.params.id], (err, result) => {
+            if (err) return res.status(500).json({ message: 'Lỗi cập nhật. Tên đăng nhập có thể đã bị trùng.' });
+            res.json({ message: 'Đã cập nhật thông tin và mật khẩu mới cho Giáo viên!' });
+        });
+    } else {
+        const sql = 'UPDATE teachers SET username = ?, full_name = ? WHERE id = ?';
+        db.query(sql, [username, full_name, req.params.id], (err, result) => {
+            if (err) return res.status(500).json({ message: 'Lỗi cập nhật. Tên đăng nhập có thể đã bị trùng.' });
+            res.json({ message: 'Đã cập nhật thông tin Giáo viên!' });
+        });
+    }
+});
+
+app.put('/api/teacher-update-profile', (req, res) => {
+    const { teacher_id, username, full_name } = req.body;
+    const checkSql = 'SELECT * FROM teachers WHERE username = ? AND id != ?';
+    db.query(checkSql, [username, teacher_id], (err, results) => {
+         if (err) return res.status(500).json({ message: 'Lỗi kiểm tra.' });
+         if (results.length > 0) return res.status(400).json({ message: 'Tên đăng nhập này đã có người sử dụng!' });
+         
+         const updateSql = 'UPDATE teachers SET username = ?, full_name = ? WHERE id = ?';
+         db.query(updateSql, [username, full_name, teacher_id], (err, result) => {
+             if (err) return res.status(500).json({message: 'Lỗi cập nhật.'});
+             res.json({message: 'Cập nhật thông tin cá nhân thành công!'});
+         });
+    });
+});
+
+app.put('/api/teacher-change-password', (req, res) => {
+    const { teacher_id, old_password, new_password } = req.body;
+    const checkSql = 'SELECT * FROM teachers WHERE id = ? AND password = ?';
+    db.query(checkSql, [teacher_id, old_password], (err, results) => {
+        if (err) return res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra.' });
+        if (results.length === 0) return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác!' });
+        
+        const updateSql = 'UPDATE teachers SET password = ? WHERE id = ?';
+        db.query(updateSql, [new_password, teacher_id], (err, result) => {
+            if (err) return res.status(500).json({ message: 'Lỗi khi đổi mật khẩu mới.' });
+            res.json({ message: 'Đổi mật khẩu thành công! Lần sau hãy đăng nhập bằng mật khẩu mới nhé.' });
+        });
+    });
+});
+
+app.get('/api/results/teacher/:teacherId', (req, res) => {
+    const teacherId = req.params.teacherId;
+    
+    const sql = `
+        SELECT r.id, r.play_time, r.play_mode, r.correct_answers, r.score, 
+               s.full_name, s.student_number, c.class_name, l.name as lesson_name
+        FROM gameresults r
+        LEFT JOIN students s ON r.student_id = s.id
+        LEFT JOIN classes c ON s.class_id = c.id
+        LEFT JOIN lessons l ON r.lesson_id = l.id
+        WHERE c.teacher_id = ?
+        ORDER BY r.play_time DESC
+    `;
+    
+    db.query(sql, [teacherId], (err, results) => {
+        if (err) {
+            console.error("Lỗi truy vấn kết quả theo GV:", err);
+            return res.status(500).json({ message: "Lỗi lấy dữ liệu kết quả!" });
+        }
+        res.json(results);
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
